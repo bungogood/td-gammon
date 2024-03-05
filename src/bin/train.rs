@@ -10,6 +10,10 @@ pub struct Args {
     #[arg(short = 'm', long = "model")]
     model_path: Option<PathBuf>,
 
+    /// Directory
+    #[arg(short = 'd', long = "dir")]
+    dir: Option<PathBuf>,
+
     /// Verbose
     #[arg(short = 'v', long = "verbose", default_value = "false")]
     verbose: bool,
@@ -48,15 +52,15 @@ pub fn run(args: &Args) {
         None => TDModel::<Autodiff<LibTorch>>::new(&device),
     };
 
-    let td_config = TDConfig::new(0.02, 0.7);
+    let td_config = TDConfig::new(0.1, 0.7);
 
     let mut td: TDTrainer<Autodiff<LibTorch>> = TDTrainer::new(device.clone(), td_config);
 
-    let model2 = td.train::<Hypergammon>(model, 1_000_000);
+    let model = td.train::<Hypergammon>(args.dir.clone(), model, 1_000_000);
 
-    model2
-        .save_file(format!("model/td-next"), &NoStdTrainingRecorder::new())
-        .expect("Failed to save trained model");
+    // model
+    //     .save_file(format!("model/td-next"), &NoStdTrainingRecorder::new())
+    //     .expect("Failed to save trained model");
 }
 
 fn main() {

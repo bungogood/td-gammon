@@ -174,7 +174,7 @@ impl<B: Backend> TDModel<B> {
         if pos.turn {
             if maxer {
                 pos.possible_positions(dice)
-                    .par_iter()
+                    .iter()
                     .map(|p| match p.game_state() {
                         GameOver(result) => (
                             *p,
@@ -199,7 +199,7 @@ impl<B: Backend> TDModel<B> {
                     .unwrap()
             } else {
                 pos.possible_positions(dice)
-                    .par_iter()
+                    .iter()
                     .map(|p| match p.game_state() {
                         GameOver(result) => (
                             *p,
@@ -226,7 +226,7 @@ impl<B: Backend> TDModel<B> {
         } else {
             if maxer {
                 pos.possible_positions(dice)
-                    .par_iter()
+                    .iter()
                     .map(|p| match p.game_state() {
                         GameOver(result) => (
                             *p,
@@ -251,7 +251,7 @@ impl<B: Backend> TDModel<B> {
                     .unwrap()
             } else {
                 pos.possible_positions(dice)
-                    .par_iter()
+                    .iter()
                     .map(|p| match p.game_state() {
                         GameOver(result) => (
                             *p,

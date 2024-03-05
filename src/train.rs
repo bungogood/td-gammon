@@ -1,4 +1,7 @@
-use std::io::{stdout, Write};
+use std::{
+    io::{stdout, Write},
+    path::PathBuf,
+};
 
 use crate::{
     dicegen::DiceGen,
@@ -85,89 +88,107 @@ impl<B: AutodiffBackend> TDTrainer<B> {
         model
     }
 
-    pub fn train<G: State + Send>(&mut self, model: TDModel<B>, num_episodes: usize) -> TDModel<B> {
+    pub fn train<G: State + Send>(
+        &mut self,
+        path: Option<PathBuf>,
+        model: TDModel<B>,
+        num_episodes: usize,
+    ) -> TDModel<B> {
         // self.train_one(model.clone());
         let mut model = model;
         let mut best_model = model.clone();
         let mut best_ep = 0;
         let mut ep = 0;
-        while ep < num_episodes {
+
+        while ep <= num_episodes {
             model = self.train_game::<G>(model.clone());
-            if ep % 100 == 0 {
-                print!("\rEpisode: {}", ep);
-                stdout().flush().unwrap();
+            if ep % 1000 == 0 {
+                println!("Episode: {}", ep);
+                match path {
+                    Some(ref path) => {
+                        stdout().flush().unwrap();
+                        model
+                            .clone()
+                            .save_file(
+                                format!("{}/games-{}", path.display(), ep),
+                                &NoStdTrainingRecorder::new(),
+                            )
+                            .expect("Failed to save model");
+                    }
+                    None => (),
+                }
             }
 
             ep += 1;
 
-            if ep % 5_000 == 0 {
-                let probs = duel::<FState<G>>(model.clone(), RandomEvaluator::new(), 1000);
-                println!(
-                    "Random Equity: {:.3} ({:.1}%). {:?}",
-                    probs.equity(),
-                    probs.win_prob() * 100.0,
-                    probs,
-                );
-                let probs = duel::<FState<G>>(model.clone(), best_model.clone(), 1000);
-                println!(
-                    "Prev Equity: {:.3} ({:.1}%). {:?}",
-                    probs.equity(),
-                    probs.win_prob() * 100.0,
-                    probs,
-                );
-                if probs.win_prob() > 0.53 {
-                    best_model = model.clone();
-                    best_ep = ep;
-                }
-            }
+            // if ep % 5_000 == 0 {
+            //     let probs = duel::<FState<G>>(model.clone(), RandomEvaluator::new(), 1000);
+            //     println!(
+            //         "Random Equity: {:.3} ({:.1}%). {:?}",
+            //         probs.equity(),
+            //         probs.win_prob() * 100.0,
+            //         probs,
+            //     );
+            //     let probs = duel::<FState<G>>(model.clone(), best_model.clone(), 1000);
+            //     println!(
+            //         "Prev Equity: {:.3} ({:.1}%). {:?}",
+            //         probs.equity(),
+            //         probs.win_prob() * 100.0,
+            //         probs,
+            //     );
+            //     if probs.win_prob() > 0.53 {
+            //         best_model = model.clone();
+            //         best_ep = ep;
+            //     }
+            // }
 
-            if ep - best_ep > 100_000 {
-                println!("No improvement. Reseting.");
-                model = best_model.clone();
-                ep = best_ep;
-            }
+            // if ep - best_ep > 100_000 {
+            //     println!("No improvement. Reseting.");
+            //     model = best_model.clone();
+            //     ep = best_ep;
+            // }
 
-            if ep % 25_000 == 0 {
-                let probs = duel::<FState<Hypergammon>>(
-                    model.clone(),
-                    HyperEvaluator::new().unwrap(),
-                    1000,
-                );
-                println!(
-                    "Hyper Equity: {:.3} ({:.1}%). {:?}",
-                    probs.equity(),
-                    probs.win_prob() * 100.0,
-                    probs,
-                );
-                let probs = duel::<FState<Hypergammon>>(model.clone(), PubEval::new(), 1000);
-                println!(
-                    "Pub Eval Equity: {:.3} ({:.1}%). {:?}",
-                    probs.equity(),
-                    probs.win_prob() * 100.0,
-                    probs,
-                );
-                // let probs = duel::<FState<G>>(model.clone(), prev_model.clone(), 1000);
-                // println!(
-                //     "Prev Equity: {:.3} ({:.1}%). {:?}",
-                //     probs.equity(),
-                //     probs.win_prob() * 100.0,
-                //     probs,
-                // );
-                // if probs.win_prob() < 0.5 {
-                //     model = prev_model.clone();
-                //     println!("Not improving");
-                // } else {
-                //     println!("Saving model");
-                //     model
-                //         .clone()
-                //         .save_file(
-                //             format!("model/td-next/games-{}", ep),
-                //             &NoStdTrainingRecorder::new(),
-                //         )
-                //         .expect("Failed to save model");
-                // }
-                // prev_model = model.clone();
-            }
+            // if ep % 25_000 == 0 {
+            //     let probs = duel::<FState<Hypergammon>>(
+            //         model.clone(),
+            //         HyperEvaluator::new().unwrap(),
+            //         1000,
+            //     );
+            //     println!(
+            //         "Hyper Equity: {:.3} ({:.1}%). {:?}",
+            //         probs.equity(),
+            //         probs.win_prob() * 100.0,
+            //         probs,
+            //     );
+            //     let probs = duel::<FState<Hypergammon>>(model.clone(), PubEval::new(), 1000);
+            //     println!(
+            //         "Pub Eval Equity: {:.3} ({:.1}%). {:?}",
+            //         probs.equity(),
+            //         probs.win_prob() * 100.0,
+            //         probs,
+            //     );
+            //     // let probs = duel::<FState<G>>(model.clone(), prev_model.clone(), 1000);
+            //     // println!(
+            //     //     "Prev Equity: {:.3} ({:.1}%). {:?}",
+            //     //     probs.equity(),
+            //     //     probs.win_prob() * 100.0,
+            //     //     probs,
+            //     // );
+            //     // if probs.win_prob() < 0.5 {
+            //     //     model = prev_model.clone();
+            //     //     println!("Not improving");
+            //     // } else {
+            //     //     println!("Saving model");
+            //     //     model
+            //     //         .clone()
+            //     //         .save_file(
+            //     //             format!("model/td-next/games-{}", ep),
+            //     //             &NoStdTrainingRecorder::new(),
+            //     //         )
+            //     //         .expect("Failed to save model");
+            //     // }
+            //     // prev_model = model.clone();
+            // }
             // if ep % 2_000 == 0 {
             //     println!("Saving model");
             //     model
