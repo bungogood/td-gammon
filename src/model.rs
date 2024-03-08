@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use crate::{evaluator::Evaluator, fstate::FState, inputs::Inputs};
 use bkgm::GameState::{GameOver, Ongoing};
 use bkgm::{dice::ALL_21, position, Dice, GameResult, Position, State};
+use burn::config::Config;
 use burn::{
     data,
     module::Module,
@@ -22,8 +23,21 @@ use burn::{
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 
+#[derive(Config)]
+pub struct ModelConfig {
+    #[config(default = 1)]
+    pub layers: usize,
+    #[config(default = 160)]
+    pub neurons: usize,
+    #[config(default = 1)]
+    pub nply: usize,
+}
+
 #[derive(Module, Debug)]
 pub struct TDModel<B: Backend> {
+    // layers: usize,
+    // neurons: usize,
+    // nply: usize,
     fc1: nn::Linear<B>,
     output: nn::Linear<B>,
 }
@@ -31,30 +45,31 @@ pub struct TDModel<B: Backend> {
 impl<B: Backend> Default for TDModel<B> {
     fn default() -> Self {
         let device = B::Device::default();
-        Self::new(&device)
+        Self::new(ModelConfig::new(), &device)
     }
 }
 
 impl<B: Backend> TDModel<B> {
-    pub fn new(device: &B::Device) -> Self {
+    pub fn new(config: ModelConfig, device: &B::Device) -> Self {
         Self {
-            fc1: nn::LinearConfig::new(202, 160).init(device),
-            output: nn::LinearConfig::new(160, 1).init(device),
+            fc1: nn::LinearConfig::new(202, config.neurons).init(device),
+            output: nn::LinearConfig::new(config.neurons, 1).init(device),
         }
     }
 
-    pub fn new_from(record: TDModelRecord<B>) -> Self {
+    pub fn new_from(config: ModelConfig, record: TDModelRecord<B>) -> Self {
+        // record.
         Self {
-            fc1: nn::LinearConfig::new(202, 160).init_with(record.fc1),
-            output: nn::LinearConfig::new(160, 1).init_with(record.output),
+            fc1: nn::LinearConfig::new(202, config.neurons).init_with(record.fc1),
+            output: nn::LinearConfig::new(config.neurons, 1).init_with(record.output),
         }
     }
 
-    pub fn init_with(device: B::Device, model_path: &PathBuf) -> Self {
+    pub fn init_with(config: ModelConfig, device: B::Device, model_path: &PathBuf) -> Self {
         let record = NoStdTrainingRecorder::new()
             .load(model_path.into(), &device)
             .expect("Failed to load model");
-        Self::new_from(record)
+        Self::new_from(config, record)
     }
 
     fn inputs(&self, position: &bkgm::Position) -> Data<f32, 1> {
@@ -162,7 +177,7 @@ impl<B: Backend> TDModel<B> {
 
     fn nply<G: State + Send>(
         &self,
-        depth: u8,
+        depth: usize,
         maxer: bool,
         pos: &FState<G>,
         dice: &Dice,
@@ -281,7 +296,7 @@ impl<B: Backend> TDModel<B> {
 
 impl<G: State + Send, B: Backend> Evaluator<FState<G>> for TDModel<B> {
     fn best_position(&self, pos: &FState<G>, dice: &Dice) -> FState<G> {
-        self.nply(2, true, pos, dice).0
+        self.nply(1, true, pos, dice).0
     }
 
     // fn best_position(&self, pos: &FState<G>, dice: &Dice) -> FState<G> {

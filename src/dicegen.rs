@@ -3,6 +3,7 @@ use bkgm::{dice::ALL_SINGLES, Dice};
 pub trait DiceGen: Clone {
     /// Returns dice
     fn roll(&mut self) -> Dice;
+    fn first_roll(&mut self) -> Dice;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -17,6 +18,10 @@ impl DiceGen for FastrandDice {
         let die1 = random / 6 + 1;
         let die2 = random % 6 + 1;
         Dice::new(die1, die2)
+    }
+
+    fn first_roll(&mut self) -> Dice {
+        ALL_SINGLES[self.generator.usize(0..15)]
     }
 }
 
@@ -34,10 +39,6 @@ impl FastrandDice {
             generator: fastrand::Rng::with_seed(seed),
         }
     }
-
-    pub fn first_roll(&mut self) -> Dice {
-        ALL_SINGLES[self.generator.usize(0..15)]
-    }
 }
 
 #[cfg(test)]
@@ -54,6 +55,10 @@ impl DiceGen for DiceGenMock {
         let dice = self.dice[self.no_calls];
         self.no_calls += 1;
         dice
+    }
+
+    fn first_roll(&mut self) -> Dice {
+        self.roll()
     }
 }
 

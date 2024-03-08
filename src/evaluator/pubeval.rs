@@ -48,11 +48,12 @@ use super::Evaluator;
 // Also, be sure to call rdwts() at the start of your
 // program to read in the weight values. Happy hacking]
 
-pub struct PubEval<G: State> {
+#[derive(Clone, Copy)]
+pub struct PubEval<G: State + Send> {
     phantom: PhantomData<G>,
 }
 
-impl<G: State> Evaluator<G> for PubEval<G> {
+impl<G: State + Send> Evaluator<G> for PubEval<G> {
     fn best_position(&self, pos: &G, dice: &bkgm::Dice) -> G {
         *pos.possible_positions(dice)
             .iter()
@@ -63,7 +64,7 @@ impl<G: State> Evaluator<G> for PubEval<G> {
     }
 }
 
-impl<G: State> PubEval<G> {
+impl<G: State + Send> PubEval<G> {
     pub fn new() -> Self {
         Self {
             phantom: PhantomData,

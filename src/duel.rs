@@ -5,8 +5,9 @@ use crate::evaluator::Evaluator;
 use crate::probabilities::{Probabilities, ResultCounter};
 use bkgm::GameState::{GameOver, Ongoing};
 use bkgm::State;
-use indicatif::ProgressIterator;
+use indicatif::{ProgressBar, ProgressStyle};
 
+#[derive(Clone, Copy)]
 pub struct Duel<T: Evaluator<G>, U: Evaluator<G>, G: State> {
     evaluator1: T,
     evaluator2: U,
@@ -20,9 +21,27 @@ pub fn duel<G: State>(
 ) -> Probabilities {
     let duel = Duel::new(evaluator1, evaluator2);
     let mut results = ResultCounter::default();
-    for _ in (0..rounds).progress() {
+    let bar = ProgressBar::new(rounds as u64);
+    bar.set_style(
+        ProgressStyle::default_bar()
+            .template("{pos:>5}/{len:5} {msg} {wide_bar} {eta}")
+            .unwrap(),
+    );
+    for _ in 1..=rounds {
         let outcome = duel.single_duel(&mut FastrandDice::new());
         results = results.combine(&outcome);
+        let probs = results.probabilities();
+
+        let message = format!(
+            "wn:{:.2}% wg:{:.2}% wb:{:.2}% lg:{:.2}% lb:{:.2}%",
+            probs.win_prob() * 100.0,
+            probs.win_g * 100.0,
+            probs.win_b * 100.0,
+            probs.lose_g * 100.0,
+            probs.lose_b * 100.0,
+        );
+        bar.set_message(message);
+        bar.inc(1);
     }
     results.probabilities()
 }
@@ -49,8 +68,8 @@ impl<T: Evaluator<G>, U: Evaluator<G>, G: State> Duel<T, U, G> {
         let mut pos1_finished = false;
         let mut pos2_finished = false;
         let mut counter = ResultCounter::default();
+        let mut dice = dice_gen.first_roll();
         while !(pos1_finished && pos2_finished) {
-            let dice = dice_gen.roll();
             match pos1.game_state() {
                 Ongoing => {
                     pos1 = if iteration % 2 == 0 {
@@ -91,6 +110,7 @@ impl<T: Evaluator<G>, U: Evaluator<G>, G: State> Duel<T, U, G> {
                     }
                 }
             }
+            dice = dice_gen.roll();
             iteration += 1;
         }
         debug_assert!(counter.sum() == 2, "Each duel should have two game results");

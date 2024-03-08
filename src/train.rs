@@ -13,7 +13,7 @@ use bkgm::{
     GameState::{GameOver, Ongoing},
     Hypergammon, State,
 };
-use burn::{module::Module, record::NoStdTrainingRecorder};
+use burn::{config::Config, module::Module, record::NoStdTrainingRecorder};
 use burn::{
     optim::{momentum::MomentumConfig, GradientsParams, Optimizer, SgdConfig},
     tensor::{backend::AutodiffBackend, Data, Tensor},
@@ -21,18 +21,12 @@ use burn::{
 
 use crate::{dicegen::FastrandDice, model::TDModel};
 
+#[derive(Config)]
 pub struct TDConfig {
-    learning_rate: f64,
-    td_decay: f64,
-}
-
-impl TDConfig {
-    pub fn new(learning_rate: f64, td_decay: f64) -> Self {
-        Self {
-            learning_rate,
-            td_decay,
-        }
-    }
+    #[config(default = 0.1)]
+    pub learning_rate: f64,
+    #[config(default = 0.7)]
+    pub td_decay: f64,
 }
 
 pub struct TDTrainer<B: AutodiffBackend> {
@@ -68,21 +62,19 @@ impl<B: AutodiffBackend> TDTrainer<B> {
         let mut model = model;
 
         let mut dicegen = FastrandDice::new();
-        let mut dice = Some(dicegen.first_roll());
+        let mut dice = dicegen.first_roll();
         let mut state = FState::<G>::new();
 
         while state.game_state() == Ongoing {
             let cur_value = self.get_value(&state, &model);
             let grads = GradientsParams::from_grads(cur_value.backward(), &model);
-            if dice == None {
-                dice = Some(dicegen.roll());
-            }
-            state = model.best_position(&state, &dice.unwrap());
-            dice = None;
+            state = model.best_position(&state, &dice);
+            dice = dicegen.roll();
             let next_value = self.get_value(&state, &model);
             let td_error = next_value - cur_value.clone();
             let data: Data<f64, 1> = td_error.to_data().convert();
-            model = optim.step(-self.config.learning_rate * data.value[0], model, grads);
+            let td_error = data.value[0];
+            model = optim.step(-self.config.learning_rate * td_error, model, grads);
         }
 
         model

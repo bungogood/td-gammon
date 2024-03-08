@@ -5,6 +5,7 @@ pub trait Evaluator<G: State>: Sized {
     fn best_position(&self, pos: &G, dice: &Dice) -> G;
 }
 
+#[derive(Clone, Copy)]
 pub struct RandomEvaluator;
 
 impl RandomEvaluator {

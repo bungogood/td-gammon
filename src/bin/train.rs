@@ -27,7 +27,7 @@ use bkgm::{Backgammon, Hypergammon};
 use burn::backend::libtorch::{LibTorch, LibTorchDevice};
 use burn::backend::Autodiff;
 use burn::record::NoStdTrainingRecorder;
-use td_gammon::model::TDModel;
+use td_gammon::model::{ModelConfig, TDModel};
 use td_gammon::train::{TDConfig, TDTrainer};
 
 fn get_device(cup_only: bool) -> LibTorchDevice {
@@ -47,16 +47,21 @@ fn get_device(cup_only: bool) -> LibTorchDevice {
 pub fn run(args: &Args) {
     let device = get_device(args.cpu_only);
 
-    let model = match &args.model_path {
-        Some(path) => TDModel::<Autodiff<LibTorch>>::init_with(device, path),
-        None => TDModel::<Autodiff<LibTorch>>::new(&device),
-    };
+    let config = ModelConfig::new()
+        // .with_layers(1)
+        .with_neurons(160)
+        .with_nply(1);
 
-    let td_config = TDConfig::new(0.1, 0.7);
+    let td_config = TDConfig::new().with_learning_rate(0.1).with_td_decay(0.7);
+
+    let model = match &args.model_path {
+        Some(path) => TDModel::<Autodiff<LibTorch>>::init_with(config, device, path),
+        None => TDModel::<Autodiff<LibTorch>>::new(config, &device),
+    };
 
     let mut td: TDTrainer<Autodiff<LibTorch>> = TDTrainer::new(device.clone(), td_config);
 
-    let model = td.train::<Hypergammon>(args.dir.clone(), model, 1_000_000);
+    let model = td.train::<Hypergammon>(args.dir.clone(), model, 500_000);
 
     // model
     //     .save_file(format!("model/td-next"), &NoStdTrainingRecorder::new())
